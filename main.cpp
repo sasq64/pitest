@@ -59,6 +59,16 @@ static mutex keyMutex;
 static uint8_t pressed_keys[512];
 static deque<int> key_events;
 
+int getKey() {
+	std::lock_guard<std::mutex> guard(keyMutex);
+	int k = -1;
+	if(key_events.size() > 0) {
+		k = key_events.front();
+		key_events.pop_front();
+	}
+	return k;
+}
+
 void initKeyboard() {
 
 	memset(pressed_keys, 0, sizeof(pressed_keys));
@@ -145,8 +155,7 @@ void initBroadcom() {
 	uint32_t display_height;
 
 	// create an EGL window surface, passing context width/height
-	int success = graphics_get_display_size(0 /* LCD */, &display_width, &display_height);
-	if(success < 0)
+	if(graphics_get_display_size(0 /* LCD */, &display_width, &display_height) < 0)
 		throw display_exception("Cound not get display size");
 
 	dst_rect.x = 0;
@@ -174,9 +183,8 @@ void initBroadcom() {
 	dispman_update = vc_dispmanx_update_start(0);
 
 	dispman_element = vc_dispmanx_element_add(dispman_update,
-	dispman_display, 0/*layer*/, &dst_rect, 0/*src*/,
-	&src_rect, DISPMANX_PROTECTION_NONE, nullptr /*alpha*/,
-	nullptr/*clamp*/, DISPMANX_NO_ROTATE);
+		dispman_display, 0, &dst_rect, 0, &src_rect,
+		DISPMANX_PROTECTION_NONE, nullptr, nullptr, DISPMANX_NO_ROTATE);
 
 	nativeWindow.element = dispman_element;
 	nativeWindow.width = display_width;
@@ -227,8 +235,8 @@ void initEGL() {
 	if(eglContext == EGL_NO_CONTEXT)
 		throw display_exception("Cound not create GL context");
 
-   eglSurface = eglCreateWindowSurface(eglDisplay, config, &nativeWindow, nullptr);
-   if(eglSurface == EGL_NO_SURFACE)
+	eglSurface = eglCreateWindowSurface(eglDisplay, config, &nativeWindow, nullptr);
+	if(eglSurface == EGL_NO_SURFACE)
 		throw display_exception("Cound not create GL surface");
 
 	if(eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext) == EGL_FALSE)
@@ -245,6 +253,9 @@ int main() {
 	initEGL();
 
 	while(true) {
+		int key = getKey();
+		if(key >= 0)
+			break;
 		eglSwapBuffers(eglDisplay, eglSurface);
 	}
 
