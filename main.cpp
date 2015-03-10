@@ -1,4 +1,6 @@
-
+/* Raspberry PI GLES example by Jonas Minnberg (sasq64@gmail.com)
+ * PUBLIC DOMAIN
+ */
 #include <linux/input.h>
 #include <bcm_host.h>
 
@@ -252,9 +254,12 @@ int main() {
 	initBroadcom();
 	initEGL();
 
+	glClearColor(1.0, 0.0, 0.0, 1.0);
+
 	while(true) {
+		glClear(GL_COLOR_BUFFER_BIT);
 		int key = getKey();
-		if(key >= 0)
+		if(key == KEY_ESC || key == KEY_SPACE)
 			break;
 		eglSwapBuffers(eglDisplay, eglSurface);
 	}
