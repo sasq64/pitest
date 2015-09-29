@@ -20,7 +20,7 @@
 #include <string>
 #include <thread>
 #include <mutex>
-
+#include "../stb/stb_easy_font.h"
 using namespace std;
 
 class display_exception : public std::exception {
@@ -30,6 +30,13 @@ public:
 private:
 	std::string msg;
 };
+
+
+void print_string(float x, float y, char *text, float r, float g, float b)
+{
+}
+
+
 
 static bool test_bit(const vector<uint8_t> &v, int n) {
 	return (v[n/8] & (1<<(n%8))) != 0;
@@ -247,6 +254,105 @@ void initEGL() {
 	eglConfig = config;
 }
 
+static void (*uniFuncs[4])() = {
+	(void (*)())glUniform1f, (void (*)())glUniform2f, (void (*)())glUniform3f, (void (*)())glUniform4f
+};
+
+
+template <typename ... ARGS> void setUniform(GLuint id, const std::string &name, ARGS ... args) {
+	((void (*)(GLint, ARGS...))uniFuncs[sizeof...(ARGS)-1])(glGetUniformLocation(id, name.c_str()), args...);
+}
+
+void vertexAttribPointer(int id, const std::string &name, GLint size, GLenum type, GLboolean normalized, GLsizei stride, GLint offset) {
+	GLuint h = glGetAttribLocation(id, name.c_str());
+	glVertexAttribPointer(h, size, type, normalized, stride, reinterpret_cast<const GLvoid*>(offset));
+	glEnableVertexAttribArray(h);
+}
+
+GLuint loadShader(GLenum shaderType, const std::string &source) {
+	GLuint shader = glCreateShader(shaderType);
+	if(shader) {
+		const char *sources[1];
+		sources[0] = source.c_str();
+		glShaderSource(shader, 1, sources, NULL);
+		glCompileShader(shader);
+		GLint compiled = 0;
+		glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
+		if(!compiled) {
+			GLint infoLen = 0;
+			string msg;
+			glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLen);
+			if(infoLen) {
+				char buf[infoLen];
+				glGetShaderInfoLog(shader, infoLen, NULL, buf);
+				msg = buf;
+				glDeleteShader(shader);
+				shader = 0;
+			}
+			//throw shader_exception(msg);
+			fprintf(stderr, "Shader Error: %s\n", msg.c_str());
+		}
+	} else
+		fprintf(stderr, "Shader Error\n");
+
+	return shader;
+}
+
+
+GLuint createProgram(const string &vertexSource, const string &fragmentSource) {
+	GLuint vertexShader = loadShader(GL_VERTEX_SHADER, vertexSource);
+	GLuint pixelShader = loadShader(GL_FRAGMENT_SHADER, fragmentSource);
+
+	GLuint program = glCreateProgram();
+	if(program) {
+		glAttachShader(program, vertexShader);
+		glAttachShader(program, pixelShader);
+		glLinkProgram(program);
+		GLint linkStatus = GL_FALSE;
+		glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
+		if(linkStatus != GL_TRUE) {
+			GLint bufLength = 0;
+			string msg;
+			glGetProgramiv(program, GL_INFO_LOG_LENGTH, &bufLength);
+			if(bufLength) {
+				char buf[bufLength];
+				glGetProgramInfoLog(program, bufLength, NULL, buf);
+				msg = buf;
+			}
+			glDeleteProgram(program);
+			fprintf(stderr, "Liker Error: %s\n", msg.c_str());
+		}
+	} else
+		fprintf(stderr, "Liker Error\n");
+	return program;
+}
+
+static int recBuf = -1;
+GLuint program;
+
+void initCube() {
+	static vector<float> p {
+		-1, 1, 0, 0,
+		1, 1, 1, 0,
+		-1, -1, 0, 1,
+		1, -1, 1, 1,
+		0,0,1,0,0,1,1,1
+	};
+
+	glGenBuffers(1, (GLuint*)&recBuf);
+	glBindBuffer(GL_ARRAY_BUFFER, recBuf);
+	glBufferData(GL_ARRAY_BUFFER, p.size() * 4, &p[0], GL_STATIC_DRAW);
+
+	program = createProgram("precision mediump float; attribute vec4 vertex; void main() { gl_Position = vertex; }",
+				"uniform vec4 color; void main() { gl_FragColor = color; }");
+}
+
+void drawCube() {	
+	glBindBuffer(GL_ARRAY_BUFFER, recBuf);
+	setUniform(program, "color", 0.5, 0.3, 0.9, 1.0);
+	vertexAttribPointer(program, "vertex", 2, GL_FLOAT, GL_FALSE, 16, 0);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
 
 int main() {
 
@@ -254,10 +360,13 @@ int main() {
 	initBroadcom();
 	initEGL();
 
-	glClearColor(1.0, 0.0, 0.0, 1.0);
+	initCube();
+
+	glClearColor(1.0, 0.0, 1.0, 1.0);
 
 	while(true) {
 		glClear(GL_COLOR_BUFFER_BIT);
+		//print_string(10, 10, "Hello", 255, 255, 255);
 		int key = getKey();
 		if(key == KEY_ESC || key == KEY_SPACE)
 			break;
