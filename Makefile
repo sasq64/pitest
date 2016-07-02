@@ -1,6 +1,6 @@
 
-CXX=g++-4.8
-VC=/opt/vc
+#CXX=g++-4.8
+VC=/opt/raspberry/sysroot/vc
 
 #CXX=arm-none-linux-gnueabi-g++
 #VC := /opt/raspberry/sysroot/vc
