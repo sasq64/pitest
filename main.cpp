@@ -23,12 +23,12 @@
 
 using namespace std;
 
-class display_exception : public std::exception {
+class display_exception : public exception {
 public:
-	display_exception(const std::string &msg) : msg(msg) {}
+	display_exception(const string &msg) : msg(msg) {}
 	virtual const char *what() const throw() { return msg.c_str(); }
 private:
-	std::string msg;
+	string msg;
 };
 
 static bool test_bit(const vector<uint8_t> &v, int n) {
@@ -39,15 +39,15 @@ static vector<string> listFiles(const string &dirName) {
 	DIR *dir;
 	struct dirent *ent;
 	vector<string> rc;
-	if( (dir = opendir(dirName.c_str())) != nullptr) {
+	if((dir = opendir(dirName.c_str())) != nullptr) {
 		while ((ent = readdir (dir)) != nullptr) {
 			char *p = ent->d_name;
 			if(p[0] == '.' && (p[1] == 0 || (p[1] == '.' && p[2] == 0)))
 				continue;
 			rc.emplace_back(dirName + "/" + ent->d_name);
 		}
+		closedir(dir);
 	}
-	closedir(dir);
 	return rc;
 }
 
@@ -62,7 +62,7 @@ static uint8_t pressed_keys[512];
 static deque<int> key_events;
 
 int getKey() {
-	std::lock_guard<std::mutex> guard(keyMutex);
+	lock_guard<mutex> guard(keyMutex);
 	int k = -1;
 	if(key_events.size() > 0) {
 		k = key_events.front();
@@ -75,7 +75,7 @@ void initKeyboard() {
 
 	memset(pressed_keys, 0, sizeof(pressed_keys));
 
-	std::thread keyboardThread = thread([=]() {
+	thread keyboardThread = thread([=]() {
 
 		vector<uint8_t> evbit((EV_MAX+7)/8);
 		vector<uint8_t> keybit((KEY_MAX+7)/8);
@@ -126,7 +126,7 @@ void initKeyboard() {
 					auto *ptr = (struct input_event*)&buf[0];
 					while(rc >= sizeof(struct input_event)) {
 						if(ptr->type == EV_KEY) {
-							std::lock_guard<std::mutex> guard(keyMutex);
+							lock_guard<mutex> guard(keyMutex);
 							if(ptr->value) {
 								key_events.push_back(ptr->code);
 							}
